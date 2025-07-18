@@ -1,11 +1,11 @@
 pipeline {
     agent any
-    
+
     tools {
         maven 'Maven'
         jdk 'JDK8'
     }
-    
+
     environment {
         SOURCE_CODE_PATH = "${WORKSPACE}/"
         NEXUS_DOCKER_CREDENTIAL_ID = "nexus-docker-credentials"
@@ -19,9 +19,9 @@ pipeline {
                 echo "Checking out source code from GitHub..."
                 checkout scm: [
                     $class: 'GitSCM',
-                    branches: [[name: '*/main']], 
+                    branches: [[name: '*/main']],
                     userRemoteConfigs: [[
-                        url: 'https://github.com/mmouhib/pi', 
+                        url: 'https://github.com/Amani812/DevOpsProject',
                     ]]
                 ]
                 // Verify checkout
@@ -40,7 +40,7 @@ pipeline {
                     }
                 }
             }
-        
+
         stage('Build') {
             steps {
                 dir(SOURCE_CODE_PATH) {
@@ -48,7 +48,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Unit Tests') {
             steps {
                 dir(SOURCE_CODE_PATH) {
@@ -61,7 +61,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Code Coverage') {
     steps {
         dir(SOURCE_CODE_PATH) {
@@ -80,7 +80,7 @@ pipeline {
         }
     }
 }
-        
+
         stage("SonarQube Analysis") {
             steps {
                 dir(SOURCE_CODE_PATH){
@@ -106,20 +106,20 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Build Docker Image') {
             steps {
                 dir(SOURCE_CODE_PATH) {
                     script {
                         echo "Building Docker image..."
                         sh 'chmod 666 /var/run/docker.sock'
-                        
+
                         // Build the Docker image
                         def dockerImage = docker.build("${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}")
-                        
+
                         // Also tag as latest
                         sh "docker tag ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} ${DOCKER_IMAGE_NAME}:latest"
-                        
+
                         echo "Docker image built successfully: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
                     }
                 }
@@ -130,9 +130,9 @@ pipeline {
             steps {
                 script {
                     echo "Pushing Docker image to Docker Hub..."
-                    
-                    withCredentials([usernamePassword(credentialsId: "${NEXUS_DOCKER_CREDENTIAL_ID}", 
-                                                    usernameVariable: 'NEXUS_USERNAME', 
+
+                    withCredentials([usernamePassword(credentialsId: "${NEXUS_DOCKER_CREDENTIAL_ID}",
+                                                    usernameVariable: 'NEXUS_USERNAME',
                                                     passwordVariable: 'NEXUS_PASSWORD')]) {
                         sh """
                             # Login to Docker Hub
@@ -148,7 +148,7 @@ pipeline {
                             docker logout
                         """
                     }
-                    
+
                     echo "Docker image pushed successfully to Docker Hub"
                 }
             }
@@ -158,28 +158,28 @@ pipeline {
             steps {
                 script {
                     echo "Starting Docker Compose with MySQL and Backend app..."
-                    
+
                     // Login to Nexus Docker registry first
-                    withCredentials([usernamePassword(credentialsId: "${NEXUS_DOCKER_CREDENTIAL_ID}", 
-                                                    usernameVariable: 'NEXUS_USERNAME', 
+                    withCredentials([usernamePassword(credentialsId: "${NEXUS_DOCKER_CREDENTIAL_ID}",
+                                                    usernameVariable: 'NEXUS_USERNAME',
                                                     passwordVariable: 'NEXUS_PASSWORD')]) {
                         dir("${WORKSPACE}") {
                             sh """
                                 # Login to Nexus Docker registry
                                 # echo \$NEXUS_PASSWORD | docker login -u \$NEXUS_USERNAME --password-stdin
-                                
+
                                 # Use the docker-compose.yml file from the checked out repository
                                 docker compose -f docker-compose.yml -p pi up mysql backend-app -d
                             """
                         }
                     }
-                    
+
                     echo "Docker Compose started successfully with Nexus authentication"
                 }
             }
         }
     }
-    
+
     // post {
     //     always {
     //         echo 'Pipeline execution completed'
